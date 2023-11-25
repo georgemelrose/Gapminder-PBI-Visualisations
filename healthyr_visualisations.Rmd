@@ -1,0 +1,389 @@
+---
+title: "HealthyR Visualisations"
+author: "George Melrose"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+pacman::p_load(tidyverse, gapminder,data.table, DT, lubridate,dygraphs,xts)
+
+fwrite(gapminder, "gapminder.csv")
+
+gapdata <- gapminder
+
+gapdata1997 <- gapminder %>% 
+  filter(year == 1997)
+```
+
+
+* The gapdata dataset, derived from the Gapminder project, comprises global demographic and socio-economic indicators across various countries and years. It includes data on factors such as life expectancy, GDP per capita, population, and continent, providing a comprehensive overview of global development trends and disparities over time.
+
+```{r peaking at the dataset}
+DT::datatable(gapdata)
+```
+
+
+## Scatter Plots
+
+* Use ggplot() to create a scatter plot for the gapdata1997 dataset with gdpPercap on the x-axis and lifeExp on the y-axis, representing the life expectancy versus GDP per capita for all countries and continents in the year 1997.
+
+```{r Basic black and white plot}
+gapdata1997 %>% 
+  ggplot(aes(x = gdpPercap, y = lifeExp)) +
+  geom_point() + 
+  labs(title = "Life Expectancy vs GDP per Capita for all Countries and Continents in 1997")
+```
+
+
+* Similar to the basic plot, but this time, the points are colored based on the continent variable. This allows for a visual comparison of life expectancy and GDP per capita for different continents in 1997.
+
+
+```{r Plot where each continent has a different colour}
+gapdata1997 %>% 
+  ggplot(aes(x = gdpPercap, y = lifeExp, colour = continent)) +
+  geom_point() + 
+  labs(title = "Life Expectancy vs GDP per Capita for all Countries and Continents")
+```
+
+* Similar to the previous plot, but this time, the points are represented by a different shape, giving an additional visual dimension to differentiate between continents.
+
+
+```{r Plot with different shape for points}
+gapdata1997 %>% 
+  ggplot(aes(x = gdpPercap, y = lifeExp, colour = continent)) +
+  geom_point(shape = 2) + 
+  labs(title = "Life Expectancy vs GDP per Capita for all Countries and Continents")
+```
+
+* This plot uses facet_wrap(~continent) to create separate subplots for each continent, providing a more detailed view of the life expectancy-GDP per capita relationship for each continent in 1997.
+
+
+```{r Multiple sub plots for each continent }
+gapdata1997 %>% 
+  ggplot(aes(x = gdpPercap, y = lifeExp, colour = continent)) +
+  geom_point(shape = 1) +
+  facet_wrap(~continent) + 
+  labs(title = "Life Expectancy vs GDP per Capita for all Countries and Continents (Faceted)")
+```
+
+```{r Multiple sub plots for each continent with black and white theme}
+gapdata1997 %>% 
+  ggplot(aes(x = gdpPercap/1000, y = lifeExp, colour = continent)) +
+  geom_point(shape = 1) +
+  facet_wrap(~continent) +
+  theme_bw() + 
+  labs(title = "Life Expectancy vs GDP per Capita for all Countries and Continents")
+```
+
+## Bar Plots
+
+
+* Filters the gapdata1997 dataset for European countries and creates a simple bar plot representing the life expectancy for each European country in 1997.
+
+
+```{r Bar Plot for European Countries }
+
+gapdata1997 %>% 
+  filter(continent == "Europe") %>% 
+  ggplot(aes(x = country, y = lifeExp)) +
+  geom_col()+ 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "Life Expectancy for all European Countries in 1997") +
+  labs(x = "Country", y = "Life Expectancy") 
+
+```
+
+* Similar to the previous plot but with an additional step that rearranges the bars based on the descending order of life expectancy. Also, it sets a specific y-axis range using coord_cartesian().
+
+
+```{r specified Bar Plot for European Countries }
+
+gapdata1997 %>%
+  filter(continent == "Europe") %>%
+  arrange(desc(lifeExp)) %>%
+  ggplot(aes(x = reorder(country, -lifeExp), y = lifeExp)) +
+  geom_col() + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_cartesian(ylim = c(65, 81)) +
+  labs(x = "Country" , y = "Life Expectancy") + 
+  labs(title = "Life Expectancy for all European Countries in 1997")
+
+```
+
+
+* Calculates the average life expectancy for different continents in 1997 and represents it using a simple bar plot.
+
+
+```{r plain life expectancy for different continents bar plots }
+avg_lifeexp_by_continent <- gapdata1997 %>%
+  group_by(continent) %>%
+  summarize(avg_lifeExp = mean(lifeExp))
+
+  avg_lifeexp_by_continent %>%
+  arrange(desc(avg_lifeExp)) %>%
+  ggplot(aes(x = reorder(continent, -avg_lifeExp), y = avg_lifeExp)) +
+  geom_bar(stat = "identity") + 
+  theme_bw() +
+  labs(x = "Continent", y = "Average Life Expectancy", title = "Average Life Expectancy for different Continents in 1997") + 
+    coord_cartesian(ylim = c(50, 81))
+```
+
+* Represents the number of countries in each continent for the 1997 Gapminder dataset using a proportion plot.
+   
+```{r proportion plot of number of countries in each continent}
+gapdata1997 %>% 
+  ggplot(aes(x = "Global", fill = continent)) + 
+  geom_bar() +
+  geom_text(stat='count', aes(label=after_stat(count)), vjust=-1) +  # Updated notation
+  labs(x = "", y = "No.Countries in each Continent", title = "Proportions of Countries in 1997 Gapminder dataset by Continent") +
+  theme_bw()
+```
+   
+* Represents the number of countries in each continent for the 1997 Gapminder dataset seperately, using 'x=continent' to stratify them into individual bars.
+   
+```{r multiple bars in number of countries bar plot}
+gapdata1997 %>%
+  ggplot(aes(x = continent, fill = continent)) + 
+  geom_bar() +
+  geom_text(stat='count', aes(label=after_stat(count)), vjust=-0.5) +
+  labs(x = "", y = "No. Countries in each Continent", title = "Numbers of Countries in 1997 Gapminder dataset by Continent") +
+  theme_bw()
+```
+
+* Same as above plot but instead making a new dataframe that orders continents by the number of countries present. 
+
+```{r best version of country count of different continents bar plot}
+continent_counts <- gapdata1997 %>%
+  group_by(continent) %>%
+  summarize(Count = n()) %>%
+  arrange(Count) %>%
+  mutate(continent = fct_reorder(continent, Count))
+
+# Reverse the order of the factor levels for the continent variable
+continent_counts$continent <- fct_rev(continent_counts$continent)
+
+# Plotting the graph
+ggplot(continent_counts, aes(x = continent, y = Count, fill = continent)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(x = "", y = "No. Countries in each Continent", title = "Numbers of Countries in 1997 Gapminder dataset by Continent") +
+  theme_bw()
+```
+
+
+
+## Time Series Graphs
+
+* Below plot filters the gapdata dataset to include only data for the United Kingdom and creates a line plot to represent the life expectancy in the UK from 1950 to the present year.
+
+
+```{r UK life expectancy }
+gapdata %>% 
+  filter(country == "United Kingdom") %>% 
+  ggplot(aes(x = year, y = lifeExp)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Year", y = "Life Expectancy", title = "Life Expectancy in the UK from 1950-Present")
+  
+
+```
+
+
+* Filters the gapdata dataset to include data for the United Kingdom and Ireland, and creates a line plot without distinguishing between the two countries, representing the life expectancy from 1950 to the present.
+
+```{r UK and Ireland life expectancy as a single series}
+
+gapdata %>% 
+  filter(country == "United Kingdom" | country == "Ireland") %>% 
+  ggplot(aes(x = year, y = lifeExp)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Year", y = "Life Expectancy", title = "Life Expectancy in the UK & ROI from 1950-Present")
+  
+```
+   
+* Similar to the previous plot, but this time, it differentiates between the UK and Ireland by representing them with different colors in the line plot from 1950 to the present.   
+   
+```{r UK and Ireland life expectancy as two series}
+
+gapdata %>% 
+  filter(country == "United Kingdom" | country == "Ireland") %>% 
+  ggplot(aes(x = year, y = lifeExp, color = country)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Year", y = "Life Expectancy", title = "Life Expectancy in the UK & ROI from 1950-Present")
+  
+```   
+
+* Interactive "dygraph" displaying Irish and British life expectancies since 1950.
+
+
+```{r uk ireland life expectancy dygraph}
+ire_gb_gap_data <- gapdata %>% 
+  filter(country == "United Kingdom" | country == "Ireland") %>%
+  select(country, year, lifeExp) %>%
+  pivot_wider(names_from = country, values_from = lifeExp)
+
+ire_gb_gap_data$year <- as.Date(paste0(ire_gb_gap_data$year, "-01-01"))
+
+don2 <- xts(x=ire_gb_gap_data[,-1], order.by = ire_gb_gap_data$year)
+
+p <- dygraph(don2,xlab = "Year", ylab = "Life Expectancy",main = "Life Expectancy in Ireland and the UK since 1950") %>%
+  dySeries("Ireland") %>%
+  dySeries("United Kingdom", color = "green") %>%
+  dyHighlight(highlightSeriesOpts = list(strokeWidth = 1.5)) %>%
+    dyOptions(fillGraph = TRUE, fillAlpha = 0.1)  
+
+
+p
+
+
+```
+
+
+* Interactive "dygraph" displaying average life expectancies of all continents, coloured differently using dySeries() since 1950, with important global health events signposted using dyEvent().
+
+
+```{r continental life expectancy dygraph, warning=FALSE, message=FALSE}
+continent_data <- gapdata %>%
+  group_by(continent,year) %>%
+  summarize(avg_life_expectancy = mean(lifeExp, na.rm = TRUE)) %>%
+  pivot_wider(names_from = continent, values_from = avg_life_expectancy )
+
+continent_data$year <- as.Date(paste0(continent_data$year, "-01-01"))
+
+don2 <- xts(x=continent_data[,-1], order.by = continent_data$year)
+
+p <- dygraph(don2,xlab = "Year", ylab = "Life Expectancy",main = "Average Life Expectancy on different Continents since 1950") %>%
+  dySeries("Africa" , color = "blue") %>%
+  dySeries("Americas", color = "green") %>%
+  dySeries("Asia",  color = "maroon") %>%
+  dySeries("Europe",  color = "grey") %>%
+  dySeries("Oceania",color = "orange") %>%
+  dyHighlight(highlightSeriesOpts = list(strokeWidth = 1.5)) %>%
+    dyOptions(fillGraph = TRUE, fillAlpha = 0.1)  %>%
+  dyEvent("1974-05-01", "WHO Expanded Program on Immunization", labelLoc = "top", strokePattern = "solid") %>%
+dyEvent("1955-04-12", "Successful Polio Vaccine Testing by Dr.Salk", labelLoc = "top", strokePattern = "solid") %>%
+dyEvent("1996-03-11", "Introduction of Antiretroviral Therapy for HIV/AIDS", labelLoc = "bottom", strokePattern = "solid") 
+
+
+p
+
+
+```
+
+
+* Interactive "dygraph" displaying average life expectancies of all continents, coloured differently using dySeries() since 1950, with important global health events signposted using dyEvent().
+
+
+```{r bosnia gdp dygraph with shading and events ,warning=FALSE, message=FALSE}
+
+bosnia_data <- gapdata %>% 
+  filter(country == "Bosnia and Herzegovina") %>%
+  select(year, gdpPercap) 
+
+bosnia_data$year <- as.Date(paste0(continent_data$year, "-01-01"))
+
+don2 <- xts(x=bosnia_data[,-1], order.by = bosnia_data$year)
+
+p <- dygraph(don2,xlab = "Year", ylab = "GDP Per Capita (US$)",main = "GDP Per Capita (US$)  since 1950 in Bosnia & Herzegovina") %>%
+    dySeries("gdpPercap" , label = "$") %>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors = "#2c7fb8") %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE) %>%
+  dyHighlight(highlightSeriesOpts = list(strokeWidth = 1.5)) %>%
+    dyOptions(fillGraph = TRUE, fillAlpha = 0.1)  %>%
+  dyEvent("1975-01-01", "Establishment of Coca-Cola Hadžići bottling plant", labelLoc = "top", strokePattern = "dashed") %>%
+dyEvent("1961-04-27", "Establishment of Zenica Steel Plant", labelLoc = "top", strokePattern = "dashed") %>%
+dyEvent("1992-04-27", "The Socialist Federal Republic of Yugoslavia officially ceased to exist ", labelLoc = "bottom", strokePattern = "solid") %>%
+  dyShading(from = "1992-04-06", to = "1995-12-14", color = "rgba(255, 0, 0, 0.5)")
+
+
+p
+
+```
+
+
+
+## Box Plots 
+
+* A box plot that shows the distribution of life expectancy (lifeExp) across different continents (continent) in the year 1997. The function geom_boxplot() is used to create the box plot, theme_bw() sets the theme to a simple black and white style, and labs() is used to set the labels for the x-axis, y-axis, and the plot title.
+
+```{r}
+gapdata1997 %>% 
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() + 
+  theme_bw() +
+  labs(x = "Continent", y = "Life Expectancy", title = "Average Life Expectancy in the different Continents in 1997")
+```
+
+* Below plot has exactly the same code as the above albeit with geom_point(), to illustrate the data points making up each continent. 
+
+
+```{r}
+gapdata1997 %>% 
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() + 
+  geom_point() +
+  theme_bw() +
+  labs(x = "Continent", y = "Life Expectancy", title = "Average Life Expectancy in the different Continents in 1997")
+```
+
+* Same as above but with geom_jitter() to disperse the points around each each box, not have all points bunched up on one line.
+
+```{r}
+gapdata1997 %>% 
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() + 
+  geom_point() +
+  geom_jitter() +
+  theme_bw() +
+  labs(x = "Continent", y = "Life Expectancy", title = "Average Life Expectancy in the different Continents in 1997")
+```
+
+
+* This piece of code is similar to the first one, but it adds points to the box plot using geom_jitter(), where the points are colored based on the continent. This provides a visual representation of individual data points alongside the box plot. 
+
+
+```{r}
+gapdata1997 %>% 
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() +
+  geom_jitter(aes(colour = continent)) +
+  theme_bw() +
+  labs(x = "Continent", y = "Life Expectancy", title = "Average Life Expectancy in the different Continents in 1997")
+```
+
+
+* 'max_data' is a subset of 'gapdata1997'  that selects the countries with the maximum life expectancy in each continent. The group_by() function groups the data by continent, and filter() selects the rows with the maximum life expectancy in each group. The select() function is used to keep only the columns for country, continent, and life expectancy.
+
+The main plot is the same as the second piece of code, but it adds labels to the points representing the countries with the maximum life expectancy in each continent using geom_label(). The labels are set to display the country names.
+
+
+```{r}
+max_data <- gapdata1997 %>% 
+  group_by(continent) %>% 
+  filter(lifeExp == max(lifeExp)) %>% 
+  select(country, continent, lifeExp)
+
+
+gapdata1997 %>% 
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() +
+  geom_jitter(aes(colour = continent)) +
+  geom_label(data = max_data, aes(label = country)) +
+  theme_bw()
+
+
+```
+
